@@ -50,22 +50,7 @@ contract ValueRegistryScript_Additional_1 is Script {
         }
 
 
-        // 7. 別のEOAで setValue を試す
-        uint256 attackerPrivateKey = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
-        vm.startBroadcast(attackerPrivateKey);
-
-        //try-catch 文を使い、不正操作が失敗した場合（期待通り）にログを出力。
-        try valueRegistry.setValue(vin1, 4) {
-            console.log("ERROR: Unauthorized account succeeded in setting a value.");
-        } catch {
-            console.log("SUCCESS: Unauthorized account failed to set a value.");
-        }
-
-
-        // トランザクションを終了
-        vm.stopBroadcast();
-
         // スクリプト実行例:
-        // forge script script/ValueRegistryScript_Additional_1.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
+        // forge script script/ValueRegistryScript_Registration.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
     }
 }
