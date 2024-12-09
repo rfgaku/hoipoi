@@ -3,13 +3,12 @@
 import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { accidentHistoryService, type AccidentRecord } from '@/services/accident-history'
+import { useAccidentHistory, AccidentRecord } from '@/services/accident-history'
 
 export default function VehicleSearch() {
   const [vehicleId, setVehicleId] = useState('')
-  const [searchResults, setSearchResults] = useState<{
-    accidents: AccidentRecord[]
-  } | null>(null)
+  const [searchVin, setSearchVin] = useState<number>(0)
+  const { records } = useAccidentHistory(searchVin)
   const [inputLabel, setInputLabel] = useState('Search with VEHICLE IDENTICATION NUMBER')
 
   useEffect(() => {
@@ -27,19 +26,14 @@ export default function VehicleSearch() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    try {
-      const vinNumber = parseInt(vehicleId)
-      if (isNaN(vinNumber)) {
-        alert('Please enter a valid VIN number')
-        return
-      }
-
-      const accidents = await accidentHistoryService.getAccidentRecords(vinNumber)
-      setSearchResults({ accidents })
-    } catch (error) {
-      console.error('Search failed:', error)
-      alert('Failed to fetch accident records')
+    const vinNumber = parseInt(vehicleId)
+    if (isNaN(vinNumber)) {
+      alert('Please enter a valid VIN number')
+      return
     }
+
+    console.log('Searching for VIN:', vinNumber)
+    setSearchVin(vinNumber)
   }
 
   return (
@@ -74,7 +68,7 @@ export default function VehicleSearch() {
             </div>
           </div>
 
-          <Button 
+          <Button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-['Press_Start_2P'] tracking-wider py-6"
           >
@@ -82,19 +76,21 @@ export default function VehicleSearch() {
           </Button>
         </form>
 
-        {searchResults && (
+        {records && (
           <div className="mt-8 space-y-4 border-2 border-blue-400 p-4">
             <h2 className="text-center text-lg mb-4">ACCIDENT HISTORY</h2>
             <div className="text-center mb-4">
-              TOTAL ACCIDENTS: {searchResults.accidents.length}
+              TOTAL ACCIDENTS: {records.length}
             </div>
-            {searchResults.accidents.map((accident, index) => (
+            {records.map((accident, index) => (
               <div
                 key={index}
                 className="border border-blue-400 p-3 text-sm space-y-2"
               >
-                <div className="text-blue-400">DATE: {accident.timestamp}</div>
-                <div>{accident.value}</div>
+                <div className="text-blue-400">
+                  DATE: {new Date(accident.timestamp * 1000).toLocaleString()}
+                </div>
+                <div>DAMAGE LEVEL: {accident.value}</div>
               </div>
             ))}
           </div>

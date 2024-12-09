@@ -1,162 +1,49 @@
-import { ethers } from 'ethers'
+import { useReadContract } from 'wagmi'
+import { parseAbi } from 'viem'
 
 const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
-const CONTRACT_ABI = [
-  {
-    "type": "constructor",
-    "inputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "getAccidentCount",
-    "inputs": [
-      {
-        "name": "vin",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getAccidentRecords",
-    "inputs": [
-      {
-        "name": "vin",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple[]",
-        "internalType": "struct ValueRegistry.AccidentRecord[]",
-        "components": [
-          {
-            "name": "value",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "timestamp",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getValue",
-    "inputs": [
-      {
-        "name": "vin",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "setValue",
-    "inputs": [
-      {
-        "name": "vin",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "value",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  }
-]
-
+const CONTRACT_ABI = parseAbi([
+  'function setValue(uint256 vin, uint256 value) public',
+  'function getAccidentRecords(uint256 vin) public view returns ((uint256,uint256)[])',
+  'function getAccidentCount(uint256 vin) public view returns (uint256)'
+])
 
 export type AccidentRecord = {
   value: number
   timestamp: number
 }
 
-export class AccidentHistoryService {
-  private contract: ethers.Contract | null = null
-  private provider: ethers.Provider | null = null
+export function useAccidentHistory(vin: number) {
+  const { data, error, status, fetchStatus } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: 'getAccidentRecords',
+    args: [BigInt(vin)],
+    chainId: 31337,
+  })
 
-  constructor() {
-    if (typeof window !== 'undefined' && window.ethereum) {
-      this.provider = new ethers.BrowserProvider(window.ethereum)
-      this.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, this.provider) as ethers.Contract & {
-        getAccidentRecords: (vin: bigint) => Promise<any>
-      }
-    } else {
-      console.error('MetaMask is not installed. Please install it to use this feature.')
-    }
-  }
+  console.log('Contract Request:', {
+    address: CONTRACT_ADDRESS,
+    functionName: 'getAccidentRecords',
+    args: [BigInt(vin)],
+    argValue: Number(BigInt(vin)),
+    chainId: 31337
+  })
 
-  async getAccidentRecords(vin: number): Promise<AccidentRecord[]> {
-    if (!this.contract) {
-      throw new Error('Blockchain provider is not available.')
-    }
+  console.log('Contract Response:', {
+    status,
+    fetchStatus,
+    error: error?.message,
+    data,
+    dataType: data ? typeof data : 'undefined',
+    isArray: Array.isArray(data),
+    chainConnection: window?.ethereum?.isConnected?.()
+  })
 
-    try {
-      const vinBN = ethers.getBigInt(vin)
-      console.log('Fetching records for VIN:', vinBN.toString())
+  const records = data?.map((record: readonly [bigint, bigint]) => ({
+    value: Number(record[0]),
+    timestamp: Number(record[1])
+  })) ?? []
 
-      const value = await this.contract.getValue(vinBN)
-      console.log('Value from contract:', value)
-
-      const signer = await (this.provider as ethers.BrowserProvider).getSigner()
-      const contractWithSigner = this.contract.connect(signer)
-
-      const records = await contractWithSigner.getAccidentRecords(vinBN)
-      console.log('Raw records:', records)
-
-      if (!Array.isArray(records)) {
-        console.log('Records is not an array:', records)
-        return []
-      }
-
-      return records.map((record) => ({
-        value: Number(record.value),
-        timestamp: Number(record.timestamp)
-      }))
-    } catch (error) {
-      console.error('Detailed error:', error)
-      if (error instanceof Error) {
-        throw new Error(`Failed to fetch accident records: ${error.message}`)
-      }
-      throw error
-    }
-  }
+  return { records }
 }
-
-export const accidentHistoryService = new AccidentHistoryService()
